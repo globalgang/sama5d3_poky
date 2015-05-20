@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -e
+
+start() {
+  touch /var/lib/misc/udhcpd.leases
+
+  echo 1 > /proc/sys/net/ipv4/ip_forward
+  iptables -F
+  iptables -A FORWARD -i eth0 -o wlan0 -j ACCEPT
+  iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT
+  iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+  
+  ifconfig wlan0 up
+  ifconfig wlan0 192.168.0.1
+  
+  hostapd /etc/wilc_hostapd.conf -B &
+  udhcpd -f /etc/wilc_udhcpd.conf &
+}
+
+stop() {
+  killall udhcpd
+  killall hostapd
+}
+
+case "$1" in
+  start)
+    start
+  ;;
+  stop)
+    stop
+  ;;
+  *)
+  ;;
+esac

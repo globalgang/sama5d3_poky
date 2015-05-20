@@ -1,0 +1,49 @@
+From e83464624fe6d5c203c5b6a28cef0007b9cffb25 Mon Sep 17 00:00:00 2001
+From: jude <jude.lee@atmel.com>
+Date: Tue, 28 Apr 2015 11:21:02 +0900
+Subject: [PATCH] patch dts file for using serial3
+
+---
+ arch/arm/boot/dts/at91-sama5d3_xplained.dts | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/at91-sama5d3_xplained.dts b/arch/arm/boot/dts/at91-sama5d3_xplained.dts
+index 827fadf..2f939ef 100755
+--- a/arch/arm/boot/dts/at91-sama5d3_xplained.dts
++++ b/arch/arm/boot/dts/at91-sama5d3_xplained.dts
+@@ -122,12 +122,23 @@
+ 				pinctrl-0 = <&pinctrl_usart1 &pinctrl_usart1_rts_cts>;
+ 				status = "okay";
+ 			};
++			
++			usart2: serial@f8020000 {
++				atmel,use-dma-rx;
++				atmel,use-dma-tx;
++				dmas = <&dma1 2 AT91_DMA_CFG_PER_ID(7)>,
++				       <&dma1 2 (AT91_DMA_CFG_PER_ID(8) | AT91_DMA_CFG_FIFOCFG_ASAP)>;
++				dma-names = "tx", "rx";
++				pinctrl-0 = <&pinctrl_usart2 &pinctrl_usart2_rts_cts>;			
++				status = "okay";
++			};
+ 
+ 			uart0: serial@f0024000 {
+ 				status = "okay";
+ 			};
+ 
+ 			mmc1: mmc@f8000000 {
++				dmas = <0>, <0>;	/* Do not use DMA for mmc1 */
+ 				pinctrl-0 = <&pinctrl_mmc1_clk_cmd_dat0 &pinctrl_mmc1_dat1_3 &pinctrl_mmc1_cd>;
+ 				status = "okay";
+ 				slot@0 {
+@@ -139,7 +150,7 @@
+ 
+ 			spi1: spi@f8008000 {
+ 				cs-gpios = <&pioC 25 0>;
+-				status = "okay";
++				status = "disabled";
+ 			};
+ 
+ 			adc0: adc@f8018000 {
+-- 
+1.9.1
+
