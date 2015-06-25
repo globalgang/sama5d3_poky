@@ -1,0 +1,91 @@
+From 75e9f345429fa9783e4db6a55af4aec295284ec5 Mon Sep 17 00:00:00 2001
+From: jude <jude.lee@atmel.com>
+Date: Wed, 24 Jun 2015 14:26:48 +0900
+Subject: [PATCH] patch_for_kernel
+
+---
+ wilc3000/atwilc_wfi_cfg_operations.c | 24 ++++++++++++++++++++++--
+ wilc3000/linux_wlan.c                |  2 +-
+ 2 files changed, 23 insertions(+), 3 deletions(-)
+ mode change 100644 => 100755 wilc3000/atwilc_wfi_cfg_operations.c
+
+diff --git a/wilc3000/atwilc_wfi_cfg_operations.c b/wilc3000/atwilc_wfi_cfg_operations.c
+old mode 100644
+new mode 100755
+index 83de598..b2f5926
+--- a/wilc3000/atwilc_wfi_cfg_operations.c
++++ b/wilc3000/atwilc_wfi_cfg_operations.c
+@@ -213,9 +213,15 @@ void refresh_scan(void* pUserVoid,uint8_t all,ATL_Bool bDirectScan){
+ 				rssi = get_rssi_avg(pstrNetworkInfo);
+ 				if(ATL_memcmp("DIRECT-", pstrNetworkInfo->au8ssid, 7) || bDirectScan)
+ 				{
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
++					bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN, pstrNetworkInfo->au8bssid, pstrNetworkInfo->u64Tsf, pstrNetworkInfo->u16CapInfo,
++									pstrNetworkInfo->u16BeaconPeriod, (const u8*)pstrNetworkInfo->pu8IEs,
++									(size_t)pstrNetworkInfo->u16IEsLen, (((ATL_Sint32)rssi) * 100), GFP_KERNEL);
++#else
+ 					bss = cfg80211_inform_bss(wiphy, channel, pstrNetworkInfo->au8bssid, pstrNetworkInfo->u64Tsf, pstrNetworkInfo->u16CapInfo,
+ 									pstrNetworkInfo->u16BeaconPeriod, (const u8*)pstrNetworkInfo->pu8IEs,
+ 									(size_t)pstrNetworkInfo->u16IEsLen, (((ATL_Sint32)rssi) * 100), GFP_KERNEL);
++#endif
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
+ 					cfg80211_put_bss(wiphy,bss);
+ #else
+@@ -444,9 +450,15 @@ static void CfgScanResult(tenuScanEvent enuScanEvent, tstrNetworkInfo* pstrNetwo
+ 						/*P2P peers are sent to WPA supplicant and added to shadow table*/		
+ 						if(!(ATL_memcmp("DIRECT-", pstrNetworkInfo->au8ssid, 7) ))
+ 						{
++							#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
++							bss = cfg80211_inform_bss(wiphy, channel, CFG80211_BSS_FTYPE_UNKNOWN, pstrNetworkInfo->au8bssid, pstrNetworkInfo->u64Tsf, pstrNetworkInfo->u16CapInfo,
++											pstrNetworkInfo->u16BeaconPeriod, (const u8*)pstrNetworkInfo->pu8IEs,
++											(size_t)pstrNetworkInfo->u16IEsLen, (((ATL_Sint32)pstrNetworkInfo->s8rssi) * 100), GFP_KERNEL);
++							#else
+ 							bss = cfg80211_inform_bss(wiphy, channel, pstrNetworkInfo->au8bssid, pstrNetworkInfo->u64Tsf, pstrNetworkInfo->u16CapInfo,
+ 											pstrNetworkInfo->u16BeaconPeriod, (const u8*)pstrNetworkInfo->pu8IEs,
+ 											(size_t)pstrNetworkInfo->u16IEsLen, (((ATL_Sint32)pstrNetworkInfo->s8rssi) * 100), GFP_KERNEL);
++							#endif
+ 						#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
+ 							cfg80211_put_bss(wiphy,bss);
+ 						#else
+@@ -2656,7 +2668,11 @@ void ATWILC_WFI_p2p_rx (struct net_device *dev,uint8_t *buff, uint32_t size)
+ 						{
+ 							PRINT_D(GENERIC_DBG,"Sending P2P to host without extra elemnt\n");
+ 							//extra attribute for sig_dbm: signal strength in mBm, or 0 if unknown
+-						#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0))
++						#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
++							cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size-7,0);
++						#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
++							cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size-7,0,GFP_ATOMIC);
++						#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0))
+ 							cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size-7,GFP_ATOMIC);
+ 						#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+ 							cfg80211_rx_mgmt(dev, s32Freq, 0, buff,size-7,GFP_ATOMIC);	// rachel
+@@ -2676,7 +2692,11 @@ void ATWILC_WFI_p2p_rx (struct net_device *dev,uint8_t *buff, uint32_t size)
+ 				}
+ 			}
+ 		}
+-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0))
++		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18 ,0))
++		cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size-7,0);
++		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
++		cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size-7,0,GFP_ATOMIC);
++		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0))
+ 		cfg80211_rx_mgmt(priv->wdev,s32Freq, 0, buff,size,GFP_ATOMIC);
+ 		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+ 		cfg80211_rx_mgmt(dev,s32Freq, 0, buff,size,GFP_ATOMIC);
+diff --git a/wilc3000/linux_wlan.c b/wilc3000/linux_wlan.c
+index 4589bcc..12ca3b2 100755
+--- a/wilc3000/linux_wlan.c
++++ b/wilc3000/linux_wlan.c
+@@ -130,7 +130,7 @@ static int wlan_deinit_locks(linux_wlan_t* nic);
+ static void wlan_deinitialize_threads(linux_wlan_t* nic);
+ extern void ATWILC_WFI_monitor_rx(uint8_t *buff, uint32_t size);
+ extern void ATWILC_WFI_p2p_rx(struct net_device *dev,uint8_t *buff, uint32_t size);
+-extern Handle_ScanDone(void* drvHandler,tenuScanEvent enuEvent);
++extern int Handle_ScanDone(void* drvHandler,tenuScanEvent enuEvent);
+ 
+ 
+ static void linux_wlan_tx_complete(void* priv, int status);
+-- 
+1.9.1
+
